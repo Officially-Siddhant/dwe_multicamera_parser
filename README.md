@@ -1,4 +1,4 @@
-# DeepWater Explorer - ROS2 Parser
+# ROS2 Parser for Multiple DWE Cameras 
 
 
 ## Overview
@@ -137,10 +137,22 @@ The gstreamer stitching approach above combines multiple physical cameras into a
      ```
      ros2 run dwe_ros2_parser image_sub --ros-args -r /dwe/camera:=/dwe/camera_1/image_raw
      ```
-7. **Replace the placeholder calibration** — run a real calibration against each camera's raw stream, e.g.:
+7. **(Optional) Record both streams to a rosbag** — with `dwe_ros2_dual.launch.py` running, capture `image_raw`/`camera_info` from both cameras to disk for later calibration/offline processing (see "Recording Rosbags" below).
+8. **Replace the placeholder calibration** — run a real calibration against each camera's raw stream, e.g.:
    ```
    ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 \
      image:=/dwe/camera_1/image_raw camera:=/dwe/camera_1
    ```
    and copy the resulting `camera_matrix`/`distortion_coefficients`/`rectification_matrix`/`projection_matrix` into `config/camera_1.yaml` (repeat for `camera_2.yaml`). Restart the launch file afterwards so `camera_info_publisher` picks up the real values.
-8. **For stereo/extrinsic calibration downstream** — a static transform between `camera_1_frame` and `camera_2_frame` (the physical baseline/extrinsics between the two cameras) is not yet published anywhere in this package. That transform (e.g. via `tf2_ros static_transform_publisher`, populated from a stereo extrinsic calibration) is required before feeding both streams into `stereo_image_proc` or similar.
+9. **For stereo/extrinsic calibration downstream** — a static transform between `camera_1_frame` and `camera_2_frame` (the physical baseline/extrinsics between the two cameras) is not yet published anywhere in this package. That transform (e.g. via `tf2_ros static_transform_publisher`, populated from a stereo extrinsic calibration) is required before feeding both streams into `stereo_image_proc` or similar.
+
+## Recording Rosbags
+
+`launch/dwe_ros2_record.launch.py` records both cameras' `image_raw` and `camera_info` topics (`/dwe/camera_1/image_raw`, `/dwe/camera_1/camera_info`, `/dwe/camera_2/image_raw`, `/dwe/camera_2/camera_info`) to a rosbag2 bag via `ros2 bag record`. It only records — it assumes `dwe_ros2_dual.launch.py` (or equivalent) is already running and publishing those topics.
+
+```
+ros2 launch dwe_ros2_parser dwe_ros2_dual.launch.py    # in one terminal
+ros2 launch dwe_ros2_parser dwe_ros2_record.launch.py bag_output:=/data/bags/run_01   # in another
+```
+
+`bag_output` is a launch argument (default `dwe_dual_bag` in the current directory) — `ros2 bag record` refuses to write into a directory that already exists, so pass a fresh path per recording session. Stop recording with `Ctrl+C`; the bag is finalized on shutdown.

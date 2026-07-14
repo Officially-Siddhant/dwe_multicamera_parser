@@ -40,6 +40,11 @@ V4l:
 apt install v4l-utils
 ```
 
+camera_info_manager (needed for the `camera_info_publisher` node, see below):
+```
+apt install ros-humble-camera-info-manager
+```
+
 
 ## How to find device number
 Run to list available devices:

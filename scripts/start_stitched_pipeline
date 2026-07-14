@@ -1,6 +1,6 @@
 #!/bin/bash
 
-#Get amont of cameras
+#Get number of cameras
 NUM_CAMERAS=${1:-2}
 
 #Get Resolution

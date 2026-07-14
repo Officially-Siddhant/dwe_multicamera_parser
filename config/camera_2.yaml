@@ -1,0 +1,33 @@
+# PLACEHOLDER calibration for camera_2.
+# Replace camera_matrix / distortion_coefficients / rectification_matrix /
+# projection_matrix with real output from a calibration run, e.g.:
+#   ros2 run camera_calibration cameracalibrator --size 8x6 --square 0.025 \
+#     image:=/dwe/camera_2/image_raw camera:=/dwe/camera_2
+# Until then this describes an idealized, undistorted pinhole model at the
+# node's default width/height and is NOT accurate for rectification/stereo.
+image_width: 1600
+image_height: 1200
+camera_name: camera_2
+camera_matrix:
+  rows: 3
+  cols: 3
+  data: [1600.0, 0.0, 800.0,
+         0.0, 1600.0, 600.0,
+         0.0, 0.0, 1.0]
+distortion_model: plumb_bob # could be equidistant or rational_polynomial, but plumb_bob is most common
+distortion_coefficients:
+  rows: 1
+  cols: 5
+  data: [0.0, 0.0, 0.0, 0.0, 0.0]
+rectification_matrix:
+  rows: 3
+  cols: 3
+  data: [1.0, 0.0, 0.0,
+         0.0, 1.0, 0.0,
+         0.0, 0.0, 1.0]
+projection_matrix:
+  rows: 3
+  cols: 4
+  data: [1600.0, 0.0, 800.0, 0.0,
+         0.0, 1600.0, 600.0, 0.0,
+         0.0, 0.0, 1.0, 0.0]

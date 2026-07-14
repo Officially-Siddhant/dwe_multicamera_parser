@@ -30,7 +30,7 @@ class DWE_Ros2_Parser : public rclcpp::Node {
     private:
 
         // ROS2 Parameters
-        string image_topic_, save_folder_, image_prefix_;
+        string image_topic_, save_folder_, image_prefix_, frame_id_;
         int width_, height_, framerate_, device_, exposure_;
         bool auto_exposure_, show_image_, use_h264_, save_images_;
 

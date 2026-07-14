@@ -12,17 +12,20 @@ find_package(rclcpp REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(camera_info_manager REQUIRED)
 
 # add exe
 add_executable(dwe_ros2_parser src/main.cc src/dwe_ros2_parser.cc)
 add_executable(image_sub src/image_subscriber.cc)
+add_executable(camera_info_publisher src/camera_info_publisher.cc)
 
 # include dirs
 include_directories(include)
 
-# install launch files
+# install launch files and calibration configs
 install(DIRECTORY
   launch
+  config
   DESTINATION share/${PROJECT_NAME}
 )
 
@@ -43,10 +46,17 @@ ament_target_dependencies(image_sub
   OpenCV
 )
 
+ament_target_dependencies(camera_info_publisher
+  rclcpp
+  sensor_msgs
+  camera_info_manager
+)
+
 # install targets
 install(TARGETS
   dwe_ros2_parser
   image_sub
+  camera_info_publisher
   DESTINATION lib/${PROJECT_NAME}
 )
 

@@ -30,6 +30,7 @@ DWE_Ros2_Parser::~DWE_Ros2_Parser() {
 void DWE_Ros2_Parser::fetch_ros_parameters() {
 
     // Get ROS parameter
+
     declare_parameter("device", 0);
     declare_parameter("image_topic", "/dwe/camera");
     declare_parameter("width", 1600);
@@ -42,6 +43,7 @@ void DWE_Ros2_Parser::fetch_ros_parameters() {
     declare_parameter("save_images", false);
     declare_parameter("save_folder", " ~");
     declare_parameter("image_prefix", "image");
+    declare_parameter("frame_id", "camera_frame");
 
     // Fetch parameters
     device_ = get_parameter("device").as_int();
@@ -56,6 +58,7 @@ void DWE_Ros2_Parser::fetch_ros_parameters() {
     save_images_ = get_parameter("save_images").as_bool();
     save_folder_ = get_parameter("save_folder").as_string();
     image_prefix_ = get_parameter("image_prefix").as_string();
+    frame_id_ = get_parameter("frame_id").as_string();
 }
 
 // Image Callback
@@ -126,7 +129,7 @@ void DWE_Ros2_Parser::dwe_loop() {
         cv_image.image = image;
         sensor_msgs::msg::Image image_msg = *cv_image.toImageMsg();
         image_msg.header.stamp = this->now();
-        image_msg.header.frame_id = "camera_frame";
+        image_msg.header.frame_id = frame_id_;
         image_pub_->publish(image_msg);
 
         if (save_images_) {

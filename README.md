@@ -1,5 +1,6 @@
 # ROS2 Parser for Multiple DWE Cameras 
 
+Adapted from the original single-camera package by Urlaxle: https://github.com/Urlaxle/dwe_ros2_parser
 
 ## Overview
 

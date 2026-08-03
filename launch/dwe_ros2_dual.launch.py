@@ -18,11 +18,14 @@ import datetime
 from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.actions import (DeclareLaunchArgument, ExecuteProcess,
+                             IncludeLaunchDescription, RegisterEventHandler)
 from launch.conditions import IfCondition
+from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
+from launch_ros.parameter_descriptions import ParameterValue
 
 
 def generate_launch_description():
@@ -36,6 +39,20 @@ def generate_launch_description():
     os.makedirs(bags_root, exist_ok=True)
     stamp = datetime.datetime.now().strftime('%Y%m%d_%H%M%S')
     default_bag_output = os.path.join(bags_root, f'dwe_dual_bag_{stamp}')
+
+    # =========================================================================
+    # Two kinds of V4L2 control, see docs/exposure.md:
+    #  - "Camera Controls" (auto_exposure, exposure_time_absolute, ...):
+    #    dwe_ros2_parser already manages these as ROS parameters (via
+    #    cv::VideoCapture::set), so their values are just passed down through
+    #    this launch file as ordinary launch arguments below.
+    #  - "User Controls" (backlight_compensation, brightness, ...): NOT
+    #    touched by dwe_ros2_parser at all -- these are set directly on the
+    #    device with v4l2-ctl once each camera process has started, via the
+    #    RegisterEventHandler/OnProcessStart blocks further down. This is
+    #    also where scripts/set_exposure and scripts/exposure_tuner.py's live
+    #    trial values should graduate to once you've settled on them.
+    # =========================================================================
 
     # Left DWE camera (stellarHD Follower usb-2.2). Uses the
     # udev-symlinked path (see udev/99-dwe-cameras.rules) instead of a raw
@@ -51,8 +68,8 @@ def generate_launch_description():
           'width': 1600,
           'height': 1200,
           'framerate': 60,
-          'auto_exposure': False,
-          'exposure': 100,
+          'auto_exposure': ParameterValue(LaunchConfiguration('auto_exposure'), value_type=bool),
+          'exposure': ParameterValue(LaunchConfiguration('exposure'), value_type=int),
           'show_image': False,
           'use_h264': False,
           'publish_compressed': True,
@@ -78,8 +95,8 @@ def generate_launch_description():
           'width': 1600,
           'height': 1200,
           'framerate': 60,
-          'auto_exposure': False,
-          'exposure': 100,
+          'auto_exposure': ParameterValue(LaunchConfiguration('auto_exposure'), value_type=bool),
+          'exposure': ParameterValue(LaunchConfiguration('exposure'), value_type=int),
           'show_image': False,
           'use_h264': False,
           'publish_compressed': True,
@@ -135,6 +152,43 @@ def generate_launch_description():
         condition=IfCondition(LaunchConfiguration('record')),
     )
 
+    # ------------------------------------------------------------------ #
+    # User Controls -- applied with v4l2-ctl once each camera has started #
+    # ------------------------------------------------------------------ #
+    # "sleep 0.4" gives the device a moment to be fully opened by
+    # dwe_ros2_parser before v4l2-ctl touches it (OnProcessStart fires as
+    # soon as the OS process launches, not once the camera is actually
+    # open). Add further --set-ctrl=name=value terms here for any other
+    # User Control you need (see docs/exposure.md for the full list).
+    camera_1_user_controls = RegisterEventHandler(
+        OnProcessStart(
+            target_action=dwe_camera_1,
+            on_start=[
+                ExecuteProcess(
+                    cmd=['bash', '-lc',
+                         ['sleep 0.4; v4l2-ctl --device=/dev/dwe_camera_left '
+                          '--set-ctrl=backlight_compensation=',
+                          LaunchConfiguration('backlight_compensation')]],
+                    shell=False,
+                )
+            ],
+        )
+    )
+    camera_2_user_controls = RegisterEventHandler(
+        OnProcessStart(
+            target_action=dwe_camera_2,
+            on_start=[
+                ExecuteProcess(
+                    cmd=['bash', '-lc',
+                         ['sleep 0.4; v4l2-ctl --device=/dev/dwe_camera_right '
+                          '--set-ctrl=backlight_compensation=',
+                          LaunchConfiguration('backlight_compensation')]],
+                    shell=False,
+                )
+            ],
+        )
+    )
+
     return LaunchDescription([
         DeclareLaunchArgument('record', default_value='false',
                               description='Also start rosbag recording of '
@@ -143,9 +197,31 @@ def generate_launch_description():
                               description='Rosbag output dir when '
                                           'record:=true (must not already '
                                           'exist -- pass a fresh path)'),
+        # Camera Controls (handled inside dwe_ros2_parser)
+        DeclareLaunchArgument('auto_exposure', default_value='false',
+                              description='true=leave the camera in its '
+                                          'auto/Aperture-Priority exposure '
+                                          'mode; false=force Manual Mode '
+                                          'and apply "exposure" below.'),
+        DeclareLaunchArgument('exposure', default_value='100',
+                              description='exposure_time_absolute when '
+                                          'auto_exposure:=false, in 100us '
+                                          'units (range 1-5000). Lower for '
+                                          'bright sun -- see '
+                                          'docs/exposure.md.'),
+        # User Controls (applied via v4l2-ctl, see block above)
+        DeclareLaunchArgument('backlight_compensation', default_value='0',
+                              description='V4L2 backlight_compensation '
+                                          '(range 0-20). Confirmed root '
+                                          'cause of ocean-test overexposure '
+                                          'at its factory default of 5 -- '
+                                          'see docs/exposure.md. 0 for '
+                                          'bright/outdoor use.'),
         dwe_camera_1,
         dwe_camera_2,
         camera_info_1,
         camera_info_2,
         record_include,
+        camera_1_user_controls,
+        camera_2_user_controls,
     ])

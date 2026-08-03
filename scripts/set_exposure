@@ -1,0 +1,65 @@
+#!/bin/bash
+
+# Get video index
+VIDEO_INDEX=${1:-0}
+
+# Named profile, or "custom" to use the explicit overrides below.
+# See docs/exposure.md for how these were derived (live A/B tests on the
+# vehicle's own cameras).
+PROFILE=${2:-manual}
+
+# Explicit overrides -- only read when PROFILE=custom
+AUTO_EXPOSURE=${3:-1}
+EXPOSURE_TIME=${4:-100}
+BACKLIGHT_COMP=${5:-0}
+BRIGHTNESS=${6:-0}
+GAIN=${7:-0}
+
+case "$PROFILE" in
+  auto)
+    # Factory default. auto_exposure=3 is Aperture Priority (auto) for this
+    # camera; backlight_compensation=5 actively brightens against a bright
+    # background. Confirmed live: this is what blew the ocean-test footage
+    # to ~99% saturated white, human subject included.
+    AUTO_EXPOSURE=3; EXPOSURE_TIME=157; BACKLIGHT_COMP=5; BRIGHTNESS=0; GAIN=0
+    ;;
+  manual)
+    # Baseline fix: manual exposure, backlight_compensation off. Confirmed
+    # live indoors: ~99% saturated -> ~0% saturated, same camera, auto white
+    # balance left untouched. Good default for indoor/overcast/bench use.
+    AUTO_EXPOSURE=1; EXPOSURE_TIME=100; BACKLIGHT_COMP=0; BRIGHTNESS=0; GAIN=0
+    ;;
+  bright-sun)
+    # manual profile + 5x shorter exposure, for direct sun / water-surface
+    # glare where 100 (10ms) is still likely to clip.
+    AUTO_EXPOSURE=1; EXPOSURE_TIME=20; BACKLIGHT_COMP=0; BRIGHTNESS=0; GAIN=0
+    ;;
+  bright-sun-dark)
+    # bright-sun + additional ISP-level darkening, if bright-sun still clips.
+    AUTO_EXPOSURE=1; EXPOSURE_TIME=20; BACKLIGHT_COMP=0; BRIGHTNESS=-30; GAIN=0
+    ;;
+  custom)
+    ;;
+  *)
+    echo "Unknown profile '${PROFILE}'. Valid: auto | manual | bright-sun | bright-sun-dark | custom"
+    echo "Usage: set_exposure [video_index] [profile] [auto_exposure exposure_time_absolute backlight_compensation brightness gain]  (last 5 only used with 'custom')"
+    exit 1
+    ;;
+esac
+
+echo "Applying '${PROFILE}' to /dev/video${VIDEO_INDEX}: auto_exposure=${AUTO_EXPOSURE} exposure_time_absolute=${EXPOSURE_TIME} backlight_compensation=${BACKLIGHT_COMP} brightness=${BRIGHTNESS} gain=${GAIN}"
+
+# auto_exposure must land before exposure_time_absolute takes effect -- V4L2
+# reports exposure_time_absolute as flags=inactive while auto_exposure is in
+# Aperture Priority Mode. Passing both in one v4l2-ctl call (as below) is
+# confirmed to apply them in the right order.
+v4l2-ctl --device=/dev/video${VIDEO_INDEX} \
+  --set-ctrl=auto_exposure=${AUTO_EXPOSURE} \
+  --set-ctrl=exposure_time_absolute=${EXPOSURE_TIME} \
+  --set-ctrl=exposure_dynamic_framerate=0 \
+  --set-ctrl=backlight_compensation=${BACKLIGHT_COMP} \
+  --set-ctrl=brightness=${BRIGHTNESS} \
+  --set-ctrl=gain=${GAIN}
+
+echo "Resulting controls on /dev/video${VIDEO_INDEX}:"
+v4l2-ctl --device=/dev/video${VIDEO_INDEX} --list-ctrls | grep -E "brightness|auto_exposure|exposure_time_absolute|exposure_dynamic_framerate|backlight_compensation|gain"

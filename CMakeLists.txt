@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.8)
-project(dwe_ros2_parser)
+project(auv_camera_bringup)
 
 if(CMAKE_COMPILER_IS_GNUCXX OR CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   add_compile_options(-Wall -Wextra -Wpedantic)
@@ -22,10 +22,13 @@ add_executable(camera_info_publisher src/camera_info_publisher.cc)
 # include dirs
 include_directories(include)
 
-# install launch files and calibration configs
+# install launch files, calibration configs, and udev rules (the latter for
+# reference/copy -- colcon build has no privilege to install into /etc/udev
+# itself, see udev/99-dwe-cameras.rules for manual install steps)
 install(DIRECTORY
   launch
   config
+  udev
   DESTINATION share/${PROJECT_NAME}
 )
 

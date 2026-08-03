@@ -31,7 +31,7 @@ def generate_launch_description():
 
     # Setup project paths
     dwe_parser = Node(
-        package='dwe_ros2_parser',
+        package='auv_camera_bringup',
         executable='dwe_ros2_parser',
         parameters=[{
           'device': 9,
@@ -41,10 +41,10 @@ def generate_launch_description():
           'framerate': 15,
           'auto_exposure': False,
           'exposure': 100,
-          'show_image' : True, 
+          'show_image' : False, 
           'use_h264': False,
           'save_images': True,
-          'save_folder': '/home/urlaxle/data/camera_calibration/17092024/left',
+          'save_folder': '/home/nemo/ros_ws/bags/left',
           'image_prefix': 'left',
         }],
         output='screen'

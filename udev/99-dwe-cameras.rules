@@ -1,0 +1,26 @@
+# Persistent /dev symlinks for the two DWE stellarHD Follower cameras.
+#
+# WHY: /dev/videoN indices are assigned by kernel probe order and are NOT
+# stable across USB replug or reboot -- confirmed on this vehicle when the
+# right camera's node shifted from /dev/video0 to /dev/video1 with no
+# physical change. Both units also report IDENTICAL idVendor/idProduct/serial
+# (0c45:6368, serial "DWE-0002"), so they can't be told apart by any USB
+# descriptor either -- the only stable identifier is the physical USB port
+# path (KERNELS below), which survives re-enumeration as long as each camera
+# stays wired to the same physical port.
+#
+# Each camera exposes TWO video4linux interfaces; ATTR{index}=="0" selects
+# just the primary capture interface (matches the pre-existing convention of
+# using the first /dev/videoX of each camera).
+#
+# Install:
+#   sudo cp 99-dwe-cameras.rules /etc/udev/rules.d/
+#   sudo udevadm control --reload-rules
+#   sudo udevadm trigger
+# (or simply replug both cameras after reloading rules)
+#
+# Verify:
+#   ls -la /dev/dwe_camera_left /dev/dwe_camera_right
+
+SUBSYSTEM=="video4linux", KERNELS=="1-2.2:1.0", ATTR{index}=="0", SYMLINK+="dwe_camera_left"
+SUBSYSTEM=="video4linux", KERNELS=="1-2.1:1.0", ATTR{index}=="0", SYMLINK+="dwe_camera_right"

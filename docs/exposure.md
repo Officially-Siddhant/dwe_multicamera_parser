@@ -93,11 +93,22 @@ ros2 launch auv_camera_bringup dwe_ros2_dual.launch.py record:=true \
 
 ros2 bag info /home/nemo/auv_bags/exposure_trial_bright_sun
 ```
-Then pull a frame or two to look at directly (either `image_sub` live, or
-decode a `CompressedImage` message from the bag offline -- see
-"Recording Rosbags" for the offline-decode snippet). If it's still blown
-out, step up to `bright-sun-dark`, or use `custom` to dial in a value
-between `bright-sun`'s 20 and `manual`'s 100.
+Then check it -- no network needed, `rviz2`/`rqt_image_view` aren't
+installed on this vehicle and can't be `apt install`ed on-site either.
+`scripts/check_exposure.py` decodes a few sample frames straight from the
+bag with OpenCV and reports the saturated-pixel percentage per camera:
+```bash
+python3 scripts/check_exposure.py /home/nemo/auv_bags/exposure_trial_bright_sun
+
+# to actually look at a frame (needs eog, already installed):
+python3 scripts/check_exposure.py /home/nemo/auv_bags/exposure_trial_bright_sun \
+    --save-dir /tmp/frames && eog /tmp/frames
+```
+Exits 1 and prints `<-- OVEREXPOSED` on any frame >=20% saturated pixels
+(the real ocean-test whiteout measured ~99%; a properly exposed frame
+measured ~0.1%). If it's still blown out, step up to `bright-sun-dark`, or
+use `custom` to dial in a value between `bright-sun`'s 20 and `manual`'s
+100.
 
 Note: setting these via `v4l2-ctl` (what `set_exposure` does) is the
 reliable path. `dwe_ros2_parser` also has `auto_exposure`/`exposure`

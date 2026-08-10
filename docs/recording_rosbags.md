@@ -35,14 +35,14 @@ If `bag_output` is omitted, both default to a fresh
 write into a directory that already exists, so pass an explicit path for
 repeat runs in the same second, or just rely on the timestamp.
 
-## Together with an ocean test (auv_bringup)
+## Together with an ocean test (auv_missions)
 
 `ocean_test_1/2/3.launch.py` each take a `record_cameras` arg that brings up
 both cameras and records them, alongside the mission's own control/telemetry
 bag:
 
 ```bash
-ros2 launch auv_bringup ocean_test_1.launch.py record_cameras:=true
+ros2 launch auv_missions ocean_test_1.launch.py record_cameras:=true
 ```
 
 This produces **two** bags, sharing one timestamp under `~/auv_bags/`:
@@ -61,7 +61,7 @@ The camera bag's path is always derived from `bag_dir` (`<bag_dir>_cameras`)
 — there's no separate override for it. To control where it lands, set
 `bag_dir` explicitly:
 ```bash
-ros2 launch auv_bringup ocean_test_1.launch.py record_cameras:=true \
+ros2 launch auv_missions ocean_test_1.launch.py record_cameras:=true \
     bag_dir:=/home/nemo/auv_bags/dive_01
 # -> control bag:  /home/nemo/auv_bags/dive_01
 # -> camera bag:   /home/nemo/auv_bags/dive_01_cameras

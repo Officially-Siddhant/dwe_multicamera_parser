@@ -121,10 +121,19 @@ void DWE_Ros2_Parser::dwe_loop() {
     // Set buffer to zero to not build up latency
     //dwe_camera.set(cv::CAP_PROP_BUFFERSIZE, 1);
 
-    // Check if auto exposure should be disabled
+    // Exposure mode. Both branches write the control explicitly so the
+    // parameter is deterministic regardless of what the camera was left at
+    // (V4L2 controls persist across node restarts and only reset on
+    // power-cycle). Previously auto_exposure=true wrote nothing, so a
+    // camera left in Manual by set_exposure / exposure_tuner.py or an
+    // earlier auto_exposure=false launch silently stayed manual.
+    // V4L2 auto_exposure menu on this camera: 1 = Manual, 3 = Aperture
+    // Priority (auto). See docs/exposure.md.
     if (!auto_exposure_) {
         dwe_camera.set(cv::CAP_PROP_AUTO_EXPOSURE, 1);
         dwe_camera.set(cv::CAP_PROP_EXPOSURE, exposure_);
+    } else {
+        dwe_camera.set(cv::CAP_PROP_AUTO_EXPOSURE, 3);
     }
 
     // Check if save dir exists, and if not create it 

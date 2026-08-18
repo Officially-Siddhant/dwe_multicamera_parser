@@ -1,5 +1,27 @@
 # Exposure (overexposure in direct sunlight)
 
+## TL;DR -- what to run in the ocean
+
+Use **auto exposure** for open-water dives. A single manual exposure value
+cannot cover both surface glare and dark at-depth scenes in one run --
+verified across three ocean days (Jul 30 / Aug 14 manual = blown out;
+Aug 05 auto = clean, 0% saturated, every run):
+
+```bash
+ros2 launch auv_missions ocean_test_N.launch.py record_cameras:=true \
+    auto_exposure:=true backlight_compensation:=4
+```
+
+`auto_exposure:=true` now *actively* writes V4L2 `auto_exposure=3`
+(Aperture Priority) -- it used to write nothing, so a camera left in
+Manual by `set_exposure`/`exposure_tuner.py` or a prior
+`auto_exposure:=false` launch silently stayed manual (this is what caused
+the Aug 14 whiteout). Verified live: cameras forced to Manual (1) come up
+at 3 after launch. `exposure:=` is ignored when auto is on.
+
+Manual (`auto_exposure:=false exposure:=N`) is still the right tool for
+bench/controlled-lighting work and for `exposure_tuner.py` trials.
+
 ## What happened
 
 Camera feed recorded during an ocean test in heavy afternoon sun came back

@@ -102,25 +102,36 @@ The trigger must be running BEFORE the cameras open. Header GPIO is
 intermittent with a clean link and clean edge, a 1.8->3.3 V shifter is
 the next thing to try.
 
-## CHECK THE USB LINK FIRST -- before blaming sync
+## CHECK THE USB LINK FIRST -- and A/B the trigger against it
 
-Every sync symptom chased on 2026-08-18 turned out to be a **flapping USB
-link on one camera** wearing a disguise: "Follower streams ~12 frames then
-stalls", "locks once, fails nine times", "0.0 fps with the trigger on" --
-all were the right camera dropping off the bus (`error -71` EPROTO,
-`USB disconnect`, re-enumerate). A camera that isn't enumerated reads as
-0 fps in every tool, indistinguishable from a trigger fault. And a dead
-`sudo` wrapper can make `pgrep` claim the trigger is running when the pin
-is static.
+Sync symptoms on 2026-08-18 all traced to the RIGHT camera's USB link
+(`error -71` EPROTO, `USB disconnect`, re-enumerate). A camera that isn't
+enumerated reads 0 fps in every tool -- indistinguishable from a trigger
+fault. And a dead `sudo` wrapper can make `pgrep` claim the trigger is
+running when the pin is static; check the pin, not the process.
 
-So, in this order, every time:
+The controlled A/B that finally discriminated (post-reboot, link stable):
+
+    trigger OFF:  check_lock.py -> 4/4, right 60 fps, 2 cameras on bus
+    trigger ON:   check_lock.py -> 0/4, right  0 fps, right DROPPED OFF USB
+
+Same link, minutes apart. Right also fails occasionally with the trigger
+off (marginal link) but fails hard and consistently with it on -- and the
+failure is a USB disconnect, not a stall. LEFT on the same trigger wire is
+fine throughout. Conclusion: right's FSIN leg is coupling into its USB
+D+/D- (pigtail `5V D- D+ GND FSIN` -- FSIN sits beside GND, one over from
+D+; a bridge or a tight parallel run injects the 60 Hz edge into the data
+pair -> EPROTO). Not the 1.8 V level, not the edge timing.
+
+Every time, in this order:
 ```bash
-lsusb | grep -c stellar                       # must be 2
+lsusb | grep -c stellar                              # must be 2
 sudo dmesg -w | grep -iE 'usb 1-2\.[12]|error -71'   # must stay QUIET under load
-python3 scripts/check_lock.py -n 1 -s 30      # both ~60 fps, trigger OFF -> link is good
+python3 scripts/check_lock.py -n 4 -s 8               # trigger OFF: want 4/4
+sudo python3 scripts/fsin_trigger.py &                # then trigger ON
+python3 scripts/check_lock.py -n 4 -s 8               # want 4/4 again
 ```
-Only then start the trigger and re-run `check_lock.py`. `error -71` on
-one port only, with the other camera fine on the same hub/trigger, means
-that camera's connector or pigtail (`5V D- D+ GND FSIN` -- FSIN work can
-disturb the adjacent data pins). Swap the cameras between ports: fault
-follows the camera -> its cable/pigtail; fault stays on the port -> hub/power.
+If a camera passes trigger-OFF but fails trigger-ON and drops off the bus,
+its FSIN wire is disturbing its own USB data lines: continuity-check
+FSIN<->D+ and FSIN<->D- (must be open), then physically separate the FSIN
+leg from the data pair on that pigtail. Fix that before any sync test.

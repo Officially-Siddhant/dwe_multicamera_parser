@@ -16,9 +16,16 @@ DWE_Ros2_Parser::DWE_Ros2_Parser() : Node("dwe_ros2_parser") {
     // Configure publisher(s). Both are created regardless of mode; only one
     // is actually published to per frame (see dwe_loop) based on
     // publish_compressed_.
-    image_pub_ = create_publisher<sensor_msgs::msg::Image>(image_topic_, 1);
+    // SensorDataQoS (best-effort, keep_last): a RELIABLE depth-1 publisher
+    // was measured throttling capture 30 -> ~19 fps as soon as rosbag
+    // subscribed (CPU and disk idle) -- DDS reliability backpressure on
+    // ~300 KB fragmented samples stalls publish(). Frames are ephemeral;
+    // dropping late ones beats stalling the capture loop. rosbag2 adapts
+    // its subscription QoS to the publisher, so recording still works.
+    image_pub_ = create_publisher<sensor_msgs::msg::Image>(
+        image_topic_, rclcpp::SensorDataQoS().keep_last(5));
     compressed_pub_ = create_publisher<sensor_msgs::msg::CompressedImage>(
-        image_topic_ + "/compressed", 1);
+        image_topic_ + "/compressed", rclcpp::SensorDataQoS().keep_last(5));
 
     // Start DWE Loop
     dwe_loop();

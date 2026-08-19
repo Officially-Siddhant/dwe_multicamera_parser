@@ -1,0 +1,4 @@
+/home/nemo/ros_ws/src/auv_camera_bringup/src/dwe_ros2_parser.cc: In function ‘void signal_handler(int)’:
+/home/nemo/ros_ws/src/auv_camera_bringup/src/dwe_ros2_parser.cc:7:25: warning: unused parameter ‘signum’ [-Wunused-parameter]
+    7 | void signal_handler(int signum) {
+      |                     ~~~~^~~~~~

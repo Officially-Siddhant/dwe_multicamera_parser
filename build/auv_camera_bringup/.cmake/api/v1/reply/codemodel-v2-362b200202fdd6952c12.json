@@ -1,0 +1,97 @@
+{
+	"configurations" : 
+	[
+		{
+			"directories" : 
+			[
+				{
+					"build" : ".",
+					"hasInstallRule" : true,
+					"jsonFile" : "directory-.-ce7d16115c518a00c33a.json",
+					"minimumCMakeVersion" : 
+					{
+						"string" : "3.12"
+					},
+					"projectIndex" : 0,
+					"source" : ".",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"name" : "",
+			"projects" : 
+			[
+				{
+					"directoryIndexes" : 
+					[
+						0
+					],
+					"name" : "auv_camera_bringup",
+					"targetIndexes" : 
+					[
+						0,
+						1,
+						2,
+						3,
+						4
+					]
+				}
+			],
+			"targets" : 
+			[
+				{
+					"directoryIndex" : 0,
+					"id" : "auv_camera_bringup_uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-auv_camera_bringup_uninstall-d50c9c7d63872c9a904c.json",
+					"name" : "auv_camera_bringup_uninstall",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "camera_info_publisher::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-camera_info_publisher-01fe521aa2d818e77131.json",
+					"name" : "camera_info_publisher",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "dwe_ros2_parser::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-dwe_ros2_parser-9a5f01921541b94ff558.json",
+					"name" : "dwe_ros2_parser",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "image_sub::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-image_sub-ed1357c75eb87eb584f9.json",
+					"name" : "image_sub",
+					"projectIndex" : 0
+				},
+				{
+					"directoryIndex" : 0,
+					"id" : "uninstall::@6890427a1f51a3e7e1df",
+					"jsonFile" : "target-uninstall-e9a68ba05e5bd74d463e.json",
+					"name" : "uninstall",
+					"projectIndex" : 0
+				}
+			]
+		}
+	],
+	"kind" : "codemodel",
+	"paths" : 
+	{
+		"build" : "/home/nemo/ros_ws/src/auv_camera_bringup/build/auv_camera_bringup",
+		"source" : "/home/nemo/ros_ws/src/auv_camera_bringup"
+	},
+	"version" : 
+	{
+		"major" : 2,
+		"minor" : 3
+	}
+}

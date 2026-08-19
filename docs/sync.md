@@ -158,3 +158,37 @@ Result: a ~1 s gap in the bag instead of a dead topic for the whole run.
 The slow (post-read) form was seen catching a real stall; the threaded
 form is built and clean across 9 launches but had no natural stall to
 demonstrate its speed on yet -- watch for the log line.
+
+## Capture throttled to ~20 fps only while recording -- kernel UDP buffers
+
+Symptom (2026-08-19): both cameras capture 30.0 fps until rosbag record
+starts, then both sag to ~19-20. CPU ~85% idle, disk ~12 MB/s, QoS
+(reliable vs best-effort) made no difference, and a single extra
+subscriber was fine. Bisected: the throttle appears when the image topics
+carry ~4 concurrent 300 KB x 30 Hz unicast streams over loopback
+(camera_info_publisher subscribes to each image topic, so a bag recording
+both cameras makes 2 subscribers per topic). Root cause: Ubuntu's default
+kernel UDP socket buffer cap (net.core.rmem_max/wmem_max = 208 KB) is
+smaller than a single frame; CycloneDDS gets clamped to it. Standard ROS 2
+large-message tuning applies:
+
+    sudo sysctl -w net.core.rmem_max=67108864 net.core.wmem_max=67108864 \
+                   net.core.rmem_default=8388608 net.core.wmem_default=8388608
+
+Verified: full bag recording at a flat 30.0 fps, 587/587 frames both
+cameras. Persist it in /etc/sysctl.d/60-ros2-dds-buffers.conf or the
+throttle RETURNS ON REBOOT.
+
+Structural follow-up (open): camera_info_publisher subscribes to the full
+image stream only to copy header stamps -- folding CameraInfo publishing
+into dwe_ros2_parser would halve loopback image traffic outright.
+
+## Current recording config (2026-08-19)
+
+1280x720 @ 30 fps MJPG (dwe_ros2_dual.launch.py) -- reduced from
+1600x1200@60 for load headroom; valid discrete modes are 1600x1200 /
+1280x720 / 800x600 / 640x480 at 60/50/40/30/15. The bag starts 5 s after
+the cameras (TimerAction) so warm-up/reopen frames never lead the bag.
+Free-running skew between the cameras is <= half a frame period
+(~17 ms @ 30 fps), rate-locked -- accepted for now; FSIN phase-lock
+remains blocked on the right camera's pigtail fault above.

@@ -1,0 +1,1 @@
+/home/nemo/ros_ws/src/auv_camera_bringup/build/auv_camera_bringup/ament_cmake_environment_hooks/local_setup.zsh

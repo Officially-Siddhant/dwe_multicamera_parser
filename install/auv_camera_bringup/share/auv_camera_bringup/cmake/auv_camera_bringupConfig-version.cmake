@@ -1,0 +1,1 @@
+/home/nemo/ros_ws/src/auv_camera_bringup/build/auv_camera_bringup/ament_cmake_core/auv_camera_bringupConfig-version.cmake

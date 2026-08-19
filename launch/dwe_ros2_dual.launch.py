@@ -19,7 +19,8 @@ from ament_index_python.packages import get_package_share_directory
 
 from launch import LaunchDescription
 from launch.actions import (DeclareLaunchArgument, ExecuteProcess,
-                             IncludeLaunchDescription, RegisterEventHandler)
+                             IncludeLaunchDescription, RegisterEventHandler,
+                             TimerAction)
 from launch.conditions import IfCondition
 from launch.event_handlers import OnProcessStart
 from launch.launch_description_sources import PythonLaunchDescriptionSource
@@ -65,9 +66,9 @@ def generate_launch_description():
         parameters=[{
           'device_path': '/dev/dwe_camera_left',
           'image_topic': 'image_raw',
-          'width': 1600,
-          'height': 1200,
-          'framerate': 60,
+          'width': 1280,
+          'height': 720,
+          'framerate': 30,
           'auto_exposure': ParameterValue(LaunchConfiguration('auto_exposure'), value_type=bool),
           'exposure': ParameterValue(LaunchConfiguration('exposure'), value_type=int),
           'show_image': False,
@@ -92,9 +93,9 @@ def generate_launch_description():
         parameters=[{
           'device_path': '/dev/dwe_camera_right',
           'image_topic': 'image_raw',
-          'width': 1600,
-          'height': 1200,
-          'framerate': 60,
+          'width': 1280,
+          'height': 720,
+          'framerate': 30,
           'auto_exposure': ParameterValue(LaunchConfiguration('auto_exposure'), value_type=bool),
           'exposure': ParameterValue(LaunchConfiguration('exposure'), value_type=int),
           'show_image': False,
@@ -145,10 +146,16 @@ def generate_launch_description():
     # args use name:=value, not --flags, e.g.:
     #   ros2 launch auv_camera_bringup dwe_ros2_dual.launch.py record:=true \
     #       bag_output:=/home/nemo/ros_ws/bags/dive_01
-    record_include = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(
-            os.path.join(pkg_share, 'launch', 'dwe_ros2_record.launch.py')),
-        launch_arguments={'bag_output': LaunchConfiguration('bag_output')}.items(),
+    # The bag starts record_delay_s AFTER the cameras, not immediately:
+    # skips the open/auto-exposure warm-up (and any watchdog reopen) so the
+    # bag doesn't lead with garbage or a dead-topic head.
+    record_include = TimerAction(
+        period=5.0,
+        actions=[IncludeLaunchDescription(
+            PythonLaunchDescriptionSource(
+                os.path.join(pkg_share, 'launch', 'dwe_ros2_record.launch.py')),
+            launch_arguments={'bag_output': LaunchConfiguration('bag_output')}.items(),
+        )],
         condition=IfCondition(LaunchConfiguration('record')),
     )
 

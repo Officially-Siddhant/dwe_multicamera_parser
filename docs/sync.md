@@ -135,3 +135,26 @@ If a camera passes trigger-OFF but fails trigger-ON and drops off the bus,
 its FSIN wire is disturbing its own USB data lines: continuity-check
 FSIN<->D+ and FSIN<->D- (must be open), then physically separate the FSIN
 leg from the data pair on that pigtail. Fix that before any sync test.
+
+## Intermittent stream stall (~1 in 6 opens) -- and the watchdog
+
+Separate from the USB-link fault above: either camera occasionally opens,
+delivers ~12 frames, then its V4L2 stream wedges -- `read()` blocks and
+returns nothing. No USB event (camera stays enumerated, same devnum), no
+`-71`; the camera streams perfectly on the very next open. Seen on LEFT on
+2026-08-18 evening with the trigger OFF and dweOS removed, so it is not the
+trigger and not dweOS. Stagger at open makes no difference. It is what
+produced the "camera_N has 12-14 frames then nothing" bags (incl. Aug 14
+`202710` camera_1). Verified: `release()` + reopen recovers it in-process
+while the other camera keeps streaming.
+
+`dwe_ros2_parser` now has a stall watchdog (`stall_timeout_s`, default
+1.0; 0 disables). A helper thread watches the last-frame time and, on
+timeout, calls `release()` on the capture -- which unblocks the wedged
+read (the V4L2 backend otherwise blocks ~10 s; `CAP_PROP_READ_TIMEOUT_MSEC`
+is FFmpeg-only) -- then the main loop reopens via `open_camera()`,
+re-applying all settings. Log line: `stream stalled, reopening camera`.
+Result: a ~1 s gap in the bag instead of a dead topic for the whole run.
+The slow (post-read) form was seen catching a real stall; the threaded
+form is built and clean across 9 launches but had no natural stall to
+demonstrate its speed on yet -- watch for the log line.

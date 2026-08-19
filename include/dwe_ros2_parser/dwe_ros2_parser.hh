@@ -11,6 +11,7 @@
 #include <iostream>
 #include <csignal>
 #include <thread>
+#include <atomic>
 #include <filesystem>
 
 using namespace std;
@@ -26,6 +27,9 @@ class DWE_Ros2_Parser : public rclcpp::Node {
     private:
         void fetch_ros_parameters();
         void dwe_loop();
+        // (Re)open the capture device and apply all format/fps/exposure
+        // settings. Called at startup and again by the stall watchdog.
+        cv::VideoCapture open_camera();
 
     // Members
     private:
@@ -33,6 +37,7 @@ class DWE_Ros2_Parser : public rclcpp::Node {
         // ROS2 Parameters
         string image_topic_, save_folder_, image_prefix_, frame_id_, device_path_;
         int width_, height_, framerate_, device_, exposure_;
+        double stall_timeout_s_;
         bool auto_exposure_, show_image_, use_h264_, save_images_, publish_compressed_;
 
         // ROS2 variables

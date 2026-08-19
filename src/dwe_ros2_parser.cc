@@ -59,6 +59,14 @@ void DWE_Ros2_Parser::fetch_ros_parameters() {
     // the configured framerate -- MJPG format alone does not. Requires
     // use_h264=false.
     declare_parameter("publish_compressed", false);
+    // Stall watchdog: if no frame arrives for this long, release() and
+    // reopen the device. Both cameras were seen (2026-08-18) to
+    // occasionally deliver ~12 frames then stall on open -- no USB event,
+    // camera still enumerated, streams fine on the very next open. Without
+    // this the node stays alive publishing nothing (an empty topic in the
+    // bag). Reopen was verified to recover in-process while the other
+    // camera keeps streaming. 0 disables. See docs/sync.md.
+    declare_parameter("stall_timeout_s", 1.0);
 
     // Fetch parameters
     device_ = get_parameter("device").as_int();
@@ -76,16 +84,23 @@ void DWE_Ros2_Parser::fetch_ros_parameters() {
     image_prefix_ = get_parameter("image_prefix").as_string();
     frame_id_ = get_parameter("frame_id").as_string();
     publish_compressed_ = get_parameter("publish_compressed").as_bool();
+    stall_timeout_s_ = get_parameter("stall_timeout_s").as_double();
 }
 
 // Image Callback
-void DWE_Ros2_Parser::dwe_loop() {
-
+// (Re)open the capture device and apply every setting. Used at startup
+// and by the stall watchdog in dwe_loop.
+cv::VideoCapture DWE_Ros2_Parser::open_camera() {
     // Create a video capture object. Prefer the stable udev path when given;
     // fall back to the raw index (unstable across USB replug/reboot).
     cv::VideoCapture dwe_camera = device_path_.empty()
         ? cv::VideoCapture(device_, cv::CAP_V4L2)
         : cv::VideoCapture(device_path_, cv::CAP_V4L2);
+    if (!dwe_camera.isOpened()) {
+        RCLCPP_ERROR(this->get_logger(), "Failed to open camera %s",
+                     device_path_.empty() ? std::to_string(device_).c_str() : device_path_.c_str());
+        return dwe_camera;
+    }
 
     // Choose compression. MJPG is FAST, H264 is more efficient but can bring latency
     int fourcc = cv::VideoWriter::fourcc('M', 'J', 'P', 'G'); 
@@ -136,6 +151,13 @@ void DWE_Ros2_Parser::dwe_loop() {
         dwe_camera.set(cv::CAP_PROP_AUTO_EXPOSURE, 3);
     }
 
+    return dwe_camera;
+}
+
+void DWE_Ros2_Parser::dwe_loop() {
+
+    cv::VideoCapture dwe_camera = open_camera();
+
     // Check if save dir exists, and if not create it 
     if (save_images_) {
     std::filesystem::path save_dir(save_folder_);
@@ -159,14 +181,57 @@ void DWE_Ros2_Parser::dwe_loop() {
     int frame_count = 0;
     auto fps_window_start = chrono::steady_clock::now();
 
+    // Stall watchdog. The V4L2 backend's read() blocks ~10 s inside select()
+    // when the stream wedges (CAP_PROP_READ_TIMEOUT_MSEC is FFmpeg-only), so
+    // a check placed after read() can't fire sooner than that. Instead a
+    // helper thread watches last_frame_ns and, on timeout, calls release()
+    // on the capture -- which unblocks the stuck read with an error -- and
+    // sets `reopen_pending` so the main loop reopens. Reopen was verified
+    // (2026-08-18) to recover a stalled camera in-process while the other
+    // camera keeps streaming.
+    std::atomic<long long> last_frame_ns{chrono::steady_clock::now().time_since_epoch().count()};
+    std::atomic<bool> reopen_pending{false};
+    std::atomic<bool> wd_run{true};
+    int reopen_count = 0;
+    std::thread watchdog;
+    if (stall_timeout_s_ > 0.0) {
+        watchdog = std::thread([&]() {
+            while (wd_run && running) {
+                std::this_thread::sleep_for(std::chrono::milliseconds(100));
+                if (reopen_pending) continue;
+                double since = (chrono::steady_clock::now().time_since_epoch().count()
+                                - last_frame_ns.load()) / 1e9;
+                if (since >= stall_timeout_s_) {
+                    reopen_pending = true;
+                    dwe_camera.release();   // unblocks a wedged read()
+                }
+            }
+        });
+    }
+
     // Loop is run until Node is told to quit
     while(running) {
 
+        if (reopen_pending) {
+            reopen_count++;
+            RCLCPP_WARN(this->get_logger(),
+                        "No frame for >= %.1fs -- stream stalled, reopening camera (reopen #%d)",
+                        stall_timeout_s_, reopen_count);
+            std::this_thread::sleep_for(std::chrono::milliseconds(300));
+            dwe_camera = open_camera();
+            last_frame_ns = chrono::steady_clock::now().time_since_epoch().count();
+            frame_count = 0;
+            fps_window_start = chrono::steady_clock::now();
+            reopen_pending = false;
+        }
+
         // Retrive image
         bool success = dwe_camera.read(image);
+        if (!success) continue;
 
         // If image is received
         if (success) {
+            last_frame_ns = chrono::steady_clock::now().time_since_epoch().count();
 
             frame_count++;
             auto now_t = chrono::steady_clock::now();
@@ -221,7 +286,9 @@ void DWE_Ros2_Parser::dwe_loop() {
     }
     }
 
-    // Release camera object
+    // Stop watchdog, release camera object
+    wd_run = false;
+    if (watchdog.joinable()) watchdog.join();
     dwe_camera.release();
     cv::destroyAllWindows();
 
